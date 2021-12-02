@@ -1,5 +1,5 @@
 # rethinking-bayes
-Chris, Brandon, and Marcus' journey to learn Bayes via Statistical Rethinking (2019)
+Chris, Brandon, and Marcus' journey to learn Bayes via Statistical Rethinking ([2019](https://github.com/rmcelreath/statrethinking_winter2019))
 
 ---
 
