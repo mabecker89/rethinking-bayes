@@ -1,7 +1,7 @@
 #
 # Title: Assignment 1
 # Created: December 1st, 2021
-# Last Updated: December 1st, 2021
+# Last Updated: December 7th, 2021
 # Author: Brandon Allen
 # Objectives: Create examples illustrating how dispersal distances will impact the indicator
 # Keywords: Setup, Question 1, Question 2, Question 3
@@ -16,8 +16,8 @@
 rm(list=ls())
 gc()
 
-# devtools::install_github("stan-dev/cmdstanr")
 # install.packages(c("coda","mvtnorm","devtools","loo","dagitty"))
+# devtools::install_github("stan-dev/cmdstanr")
 # devtools::install_github("rmcelreath/rethinking")
 
 library(rstan)
@@ -109,3 +109,4 @@ while (threshold >= 0.05) {
 
 }
 
+print(n.sample)
