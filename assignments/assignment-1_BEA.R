@@ -1,7 +1,7 @@
 #
 # Title: Assignment 1
 # Created: December 1st, 2021
-# Last Updated: December 7th, 2021
+# Last Updated: December 12th, 2021
 # Author: Brandon Allen
 # Objectives: Create examples illustrating how dispersal distances will impact the indicator
 # Keywords: Setup, Question 1, Question 2, Question 3
@@ -86,26 +86,23 @@ gc()
 
 # Define parameter values
 threshold <- 0.5
-n.water <- 2
-n.sample <- 2*n.water
+n.sample <- 1
 
 while (threshold >= 0.05) {
 
+  n.water <- sample(c(0,1), size = n.sample, replace = T, prob = c(0.3, 0.7))
   p.grid <- seq(from = 0, to = 1, length.out = 1000) # Create grid
   prior <- rep(1, 1000) # Create non-flat prior distribution
-  prob.data <- dbinom(x = n.water, size = n.sample, prob = p.grid) # Create probablility data based on 15 tosses
+  prob.data <- dbinom(x = sum(n.water), size = n.sample, prob = p.grid) # Create probablility data based on 15 tosses
   posterior <- prob.data * prior # Multiply prior by data
   posterior <- posterior / sum(posterior) # Standardize back to probabilities
 
   samples <- sample(x = p.grid, prob = posterior, size = 1000, replace= TRUE) # Sample the distribution
 
-  threshold <- as.numeric(PI(samples, prob = 0.5)[2] - PI(samples, prob = 0.5)[1])
+  threshold <- as.numeric(PI(samples, prob = 0.99)[2] - PI(samples, prob = 0.99)[1])
 
   # Update sample
-  n.water <- n.water + 2
-  n.sample <- 2*n.water
-
-  print(threshold)
+  n.sample <- n.sample+1
 
 }
 
