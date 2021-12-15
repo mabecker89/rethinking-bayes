@@ -106,4 +106,35 @@ while (threshold >= 0.05) {
 
 }
 
+# Can we vectorize it? Think about it.
+
+get_interval_width <- function(n, p.grid, prior, grid.length) { # defining interval width as a function of sample intensity
+
+  # Create samples
+  s = sample(c(0, 1), size = c(20,10), replace = T, prob = c(0.3, 0.7)) # count of 'W'
+  W <- sum(s)
+
+  grid_length <- 100
+
+  # define grid
+  p.grid <- seq(0, 1, length.out = grid_length)
+  prior <- ifelse(p_grid > 0.5, 1, 0) # uniform distribution
+  likelihood <- dbinom(W, n, prob=p.grid)
+  unstd.posterior <- likelihood * prior
+  posterior <- unstd.posterior / sum(unstd.posterior)
+  samples <- sample(p.grid, size=1e4, replace=T, prob=posterior)
+  interval <- PI(samples, prob=0.99)
+  p_lower <- interval[[1]]
+  p_upper <- interval[[2]]
+  return(p_upper - p_lower) # interval width
+}
+
+p.grid <- seq(0, 1, length.out = p.grid)
+prior <- ifelse(p.grid > 0.5, 1, 0)
+
+
+widths <- seq(10, 3000, 10)
+out <- lapply(widths, get_interval_width)
+min(widths[out <= 0.05])
+
 print(n.sample)
