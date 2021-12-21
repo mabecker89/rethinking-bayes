@@ -1,9 +1,9 @@
 #
-# Title: Assignment 1
+# Title: Assignment 2
 # Created: December 15th, 2021
 # Last Updated: December 16th, 2021
 # Author: Brandon Allen
-# Objectives: Create examples illustrating how dispersal distances will impact the indicator
+# Objectives:
 # Keywords: Question 1, Question 2, Question 3
 # Notes:
 #
