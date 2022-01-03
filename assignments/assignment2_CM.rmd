@@ -1,0 +1,443 @@
+---
+title: "Assignment2_CM"
+author: "Christopher Mallon"
+date: "20/12/2021"
+output: html_document
+---
+
+Gentlemen, this is a rambly mess, but it encapsulates my first efforts at this. I'm hoping to polish this once we meet for a debrief. Thanks for your support!
+
+Also, the actual Problem 1 can be found on line *257*. As I said, this is rambly.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(renv)
+library(rethinking)
+
+```
+
+## Problem 1 
+
+1. The weights listed below were recorded in the !Kung census, but heights
+were not recorded for these individuals. Provide predicted heights and 89%
+compatibility intervals for each of these individuals. That is, fill in the table
+below, using model-based predictions.
+
+# Step 1: recognize set of measurements to predict or understand
+```{r Import Data}
+data(Howell1)
+d <- Howell1
+
+d2 <- d[d$age >= 18,]
+```
+
+Now we need to determine the shape of the height distribution - we are predicting height
+given weight of adults.
+
+# Step 2: for each outcome var, define likelihood distribution of plausibility of individual observations
+- Assume adults only for now, based on their weights
+- Assume normal (Gaussian) distribution (b/c of data, but also in linear regression the dist is **always** Gaussian (pg.77))
+
+## Height distribution
+h_i ~ Normal(μ,σ)
+
+# Step 3: Recognize set of other measurements to hopefully predict/understand the outcome
+These are predictor vars.
+
+So, weight?
+
+# Step 4: relate shape of likelihood dist to predictor vars; names/defines all parameters
+
+Well, given the likelihood:
+h_i ~ Normal(μ,σ)
+I think that's mostly self-explanatory for this v. 'simple' model.
+
+# Step 5: Choose priors for all params - defines initial state
+
+He has given us some priors to work with:
+μ ~ Normal(178,20)
+Which is to say that the likelihood of the mean's true value is normally distributed
+with an average of 178 (original author's height) and a sd of 20 (which is reasonable).
+σ ~ Uniform(0,50)
+And essentially it's somewhere between 0 and 50 (see below).
+
+### Plotting priors
+#### Mean
+```{r}
+curve(dnorm(x, 178, 20), from=100, to=250)
+```
+#### Standard Deviation
+```{r}
+curve(dunif(x,0,50), from=-10, to = 60)
+```
+
+Together, these parameters imply a prior dist of heights. This is as follows:
+
+```{r Prior Height Dist}
+sample_mu <- rnorm(10000, 178, 20)
+sample_sigma <- runif(1000, 0, 50)
+prior_h <- rnorm(10000, sample_mu, sample_sigma)
+dens(prior_h)
+```
+
+
+## Using Grid Approximation to inspect the posterior distribution
+```{r Build Posterior Height Distribution}
+mu.list <- seq( from=140, to=160 , length.out=200 )
+sigma.list <- seq( from=4 , to=9 , length.out=200 )
+post <- expand.grid( mu=mu.list , sigma=sigma.list )
+post$LL <- sapply( 1:nrow(post) , function(i) sum( dnorm(
+d2$height ,
+mean=post$mu[i] ,
+sd=post$sigma[i] ,
+log=TRUE ) ) )
+post$prod <- post$LL + dnorm( post$mu , 178 , 20 , TRUE ) +
+dunif( post$sigma , 0 , 50 , TRUE )
+post$prob <- exp( post$prod - max(post$prod) )
+
+# plot
+par(mfrow=c(1,2)) 
+contour_xyz( post$mu , post$sigma , post$prob )
+image_xyz( post$mu , post$sigma , post$prob )
+```
+
+#### What the fuck am I looking at here? X = mean, y = ??
+
+And while I'm at it, I don't get how we moved from a prior to a posterior. What exactly is the difference?
+
+Moving on for now...
+
+## Sampling from the posterior
+This allows us to study the posterior in more detail.
+
+```{r Sample the Posterior}
+sample.rows <- sample( 1:nrow(post) , size=1e4 , replace=TRUE ,
+prob=post$prob )
+sample.mu <- post$mu[ sample.rows ]
+sample.sigma <- post$sigma[ sample.rows ]
+plot( sample.mu , sample.sigma , cex=0.5 , pch=16 , col=col.alpha(rangi2,0.1) )
+```
+This looks like the same data as plotted above, but with nicer axis widths.
+Why doesn't it look like his in the book?? Why are there all these lines?
+Actually, I think it's just the geometry of the plot.
+
+```{r describe distribution of confidence}
+par(mfrow = c(1,2))
+dens( sample.mu )
+dens( sample.sigma )
+HPDI( sample.mu )
+HPDI( sample.sigma )
+
+```
+
+So far, by describing our priors, we have created a posterior, which allows us to describe the likelihood of the mean and sd of height based on our assumptions. So, instead of just saying "I think the average height is x", we can say "here's where I think the mean could be, and where I think the sd could be, and therefore here's what I actually think about the probability of average height being x".
+
+# Quadratic approximation
+A handy way to make inferences about the shape of the posterior. We fit with `map`, standing for *maximum a posteriori* estimate.
+
+First, recode the model:
+``` {r recoding model}
+flist <- alist(
+  height ~ dnorm(mu, sigma),
+  mu ~ dnorm(178, 20),
+  sigma ~ dunif(0,50)
+)
+
+```
+
+Now fit the model to real height data:
+
+``` {r fitting to heights}
+m4.1 <- map(flist, data = d2)
+precis(m4.1)
+```
+
+The plausability of any value mu is given by the distribution with mean 154.6 and sd 0.4.
+Here it's good to play with some different priors. I'm a bit confused: how is the data interacting with the priors to form the posterior distribution?
+-> skipped a few pages
+
+# Adding a predictor - finally we get to question 1
+
+## How do height and weight vary with each other?
+```{r Height Weight Exploration Graph}
+plot(d2$height ~ d2$weight)
+```
+Now we make a linear model, which is to make μ into a function of the predictor variables (weight, in this case) and other vars we introduce (such as the intercept, or maybe later age). To do so, all parameter values are considered.
+
+>For each combination of values, the machine computes the posterior probability, which is a measure of relative plausibility, given the model and data. So the posterior distribution ranks the infinite possible combinations of parameter values by their logical plausibility.
+
+Help?
+
+Restating the five steps of our model:
+
+# Step 1: recognize set of measurements to predict or understand
+```{r Import Data}
+data(Howell1)
+d <- Howell1
+
+d2 <- d[d$age >= 18,]
+```
+
+Now we need to determine the shape of the height distribution - we are predicting height given weight of adults.
+
+# Step 2: for each outcome var, define likelihood distribution of plausibility of individual observations
+- Assume adults only for now, based on their weights
+- Assume normal (Gaussian) distribution (b/c of data, but also in linear regression the dist is **always** Gaussian (pg.77))
+
+## Height distribution
+h_i ~ Normal(μ_i,σ)
+
+# Step 3: Recognize set of other measurements to hopefully predict/understand the outcome
+These are predictor vars.
+
+So, weight?
+
+# Step 4: relate shape of likelihood dist to predictor vars; names/defines all parameters
+
+This is now a linear model, where the independent variable will be weight. The height of an individual will depend on the mean of the normal distribution describing likelihood of height, which itself depends on the age (assuming linearity).
+
+h_i ~ Normal(μ_i,σ)
+μ_i = α + βχ_i (where χ_i is an individual's weight)
+α ~ Normal(178, 100)
+β ~ Normal(0, 10)
+σ ~ Uniform(0, 50)
+
+
+# Step 5: Choose priors for all params - defines initial state
+
+I just did that lol
+
+# Fit the model using quadratic approximation
+```{r Linear Model of Height}
+flist <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- alpha + beta * weight,
+  alpha ~ dnorm(178, 100),
+  beta ~ dnorm(0, 10), 
+  sigma ~ dunif(0,50)
+)
+
+par(mfrow=c(1, 3))
+curve(dnorm(x, 178, 100), from=0, to = 300, main='alpha')
+curve(dnorm(x, 0, 10), from = -30, to = 30, main='beta')
+curve(dunif(x, 0,50), from = -10, to = 60, main='sigma')
+
+```
+
+## Fit model
+I really don't understand what it's doing here:
+```{r Fit the linear height-weight model to the data}
+m4.3 <- map(flist, data=d2)
+precis(m4.3)
+```
+
+
+## Display model uncertainty
+```{r subset model with partial data}
+post <- extract.samples(m4.3) # how is this not grid approximation?
+N <- 20
+dN <- d2[1:N,]
+mN <- map(flist, data = dN)
+precis(kN)
+```
+
+```{r cool graph}
+# extract 20 samples from the posterior
+post <- extract.samples( mN , n=40 )
+# display raw data and sample size
+plot( dN$weight , dN$height ,
+xlim=range(d2$weight) , ylim=range(d2$height) ,
+col=rangi2 , xlab="weight" , ylab="height" )
+mtext(concat("N = ",N))
+# plot the lines, with transparency
+for ( i in 1:40 )
+abline( a=post$a[i] , b=post$b[i] , col=col.alpha("black",0.3) )
+```
+
+# Okay for real question 1, here we go:
+``` {r For real question 1}
+height_model <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- alpha + beta * weight,
+  alpha ~ dnorm(178, 100),
+  beta ~ dnorm(0, 10), 
+  sigma ~ dunif(0,50)
+)
+
+height_posterior <- map(height_model, data=d2)
+posterior <- extract.samples(height_posterior)
+
+estimate_height <- function(weight){
+  mu_i = posterior$alpha + posterior$beta * weight
+  return(mean(mu_i))
+}
+
+estimate_interval <- function(weight, bound){
+  mu_i = posterior$alpha + posterior$beta * weight
+  interval = HPDI(mu_i, prob=0.89)
+  if (bound == 'lower') {
+    return(interval[[1]])
+  } else {
+      return(interval[[2]])
+    }
+}
+
+weights <- c(45, 40, 65, 31, 33)
+Kung_stats <- data.frame('Individual' = c(1,2,3,4,5),
+                         'weight' = weights,
+                         'expected.height' = sapply(weights, estimate_height),
+                         '89.interval.lower' = sapply(weights, estimate_interval, 'lower'),
+                         '89.interval.upper' = sapply(weights, estimate_interval, 'upper')
+)
+knitr::kable(Kung_stats)
+
+
+```
+
+```{r}
+# That was attempt 1. It was not complete! Here is what to actually do:
+mu.link <- function(weight) post$a + post$b*weight
+weight.seq <- seq( from=25 , to=70 , by=1 )
+mu <- sapply( weight.seq , mu.link )
+mu.mean <- apply( mu , 2 , mean )
+mu.HPDI <- apply( mu , 2 , HPDI , prob=0.89 )
+sim.height <- sim(height_posterior, data=list(weight = weight.seq))
+height.PI <- apply(sim.height, 2, PI, prob = 0.89)
+
+# plot raw data
+plot( height ~ weight , d2 , col=col.alpha(rangi2,0.5) )
+# draw MAP line
+lines( weight.seq , mu.mean )
+# draw HPDI region for line
+shade( mu.HPDI , weight.seq )
+# draw PI region for simulated heights
+shade( height.PI , weight.seq )
+```
+
+
+```{r}
+weights <- c(45, 40, 65, 31, 33)
+weight_estimates_distributions <- sapply(weights, mu.link)
+estimated_weights <- apply(weight_estimates_distributions, 2, mean)
+estimated_PI <- apply(weight_estimates_distributions, 2, HPDI, prob=0.89)
+li <- estimated_PI[c(1,3,5,7,9)]
+ui <- estimated_PI[c(2,4,6,8,10)]
+Kung_stats <- data.frame('Individual' = c(1,2,3,4,5),
+                         'weight' = weights,
+                         'expected.height' = estimated_weights,
+                         '89.interval.lower' = li,
+                         '89.interval.upper' = ui
+)
+knitr::kable(Kung_stats)
+
+```
+
+# Problem 2
+
+2. Model the relationship between height (cm) and the natural logarithm of
+weight (log-kg): log(weight) . Use the entire Howell1 data frame, all 544
+rows, adults and non-adults. Use any model type from Chapter 4 that you
+think useful: an ordinary linear regression, a polynomial or a spline. Plot
+the posterior predictions against the raw data.
+
+```{r Problem 2}
+data(Howell1)
+d <- Howell1
+d$weight <- log(d$weight)
+plot(d$height~d$weight)
+
+```
+
+Let's start with linear because it looks kinda mostly sort of linear. And I'm tired.
+
+```{r Heigh-Log Weight Linear Model}
+flist <- alist(
+  height ~ dnorm(mu, sigma),
+  mu <- alpha + beta * weight,
+  alpha ~ dnorm(178, 100),
+  beta ~ dnorm(0, 10), 
+  sigma ~ dunif(0,50)
+)
+
+log_weight_p <- map(flist, data=d)
+posterior <- extract.samples(log_weight_p, N = 1000)
+
+# display raw data and sample size
+plot( d$weight, d$height,
+xlim=range(d$weight), ylim=range(d$height),
+col=rangi2, xlab="weight" , ylab="height" )
+
+# plot the lines, with transparency
+for ( i in 1:length(posterior$alpha) )
+abline( a=posterior$alpha[i] , b=posterior$beta[i] , col=col.alpha("black",0.3) )
+
+
+```
+I'm on a hot streak now.
+
+# Problem 3
+
+3. Plot the prior predictive distribution for the polynomial regression model
+in Chapter 4. You can modify the the code that plots the linear regression
+prior predictive distribution. 20 or 30 parabolas from the prior should suf-
+fice to show where the prior probability resides. Can you modify the prior
+distributions of α, β 1 , and β 2 so that the prior predictions stay within the
+biologically reasonable outcome space? That is to say: Do not try to fit the
+data by hand. But do try to keep the curves consistent with what you know
+about height and weight, before seeing these exact data.
+```{r priors}
+par(mfrow = c(1,4))
+curve(dnorm(x, 178, 100), from = 0, to = 250, main = 'a')
+curve(dnorm(x, 0, 10), from = 0, to = 12, main = 'b1')
+curve(dnorm(x, 0, 10), from = 0, to = 12, main = 'b2')
+curve(dunif(x, 0, 50), from = -10, to = 60, main = 'sigma')
+```
+
+
+``` {r}
+library(rethinking)
+data(Howell1)
+d <- Howell1
+
+d$weight.s <- (d$weight - mean(d$weight))/sd(d$weight) #standardize weight
+d$weight.s2 <- d$weight.s^2 # squared term for second order polynomial
+m4.5 <- quap(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1*weight.s + b2*weight.s2,
+    a ~ dnorm(178, 50),
+    b1 ~ dnorm(5, 10),
+    b2 ~ dnorm(0, 10),
+    sigma ~ dunif(0, 50)
+    ),
+data=d)
+weight.seq <- seq(from=-2.2, to=2, length.out=30)
+pred_dat <- list(weight.s=weight.seq , weight.s2=weight.seq^2)
+mu <- link(m4.5 , data=pred_dat)
+mu.mean <- apply(mu , 2, mean)
+mu.PI <- apply(mu, 2, PI, prob=0.89)
+sim.height <- sim(m4.5 , data=pred_dat)
+height.PI <- apply(sim.height, 2, PI, prob=0.89)
+
+plot( height ~ weight.s , d , col=col.alpha(rangi2,0.5) )
+lines( weight.seq , mu.mean )
+shade( mu.PI , weight.seq )
+shade( height.PI , weight.seq )
+```
+
+
+```{r prior predictive distribution}
+N <- 15
+post <- extract.samples( m4.5 , n=N )
+d_clip <- d
+# display raw data and sample size
+plot( d_clip$weight.s , d_clip$height ,
+xlim=range(d$weight.s) , ylim=range(d$height) ,
+col=rangi2 , xlab="weight" , ylab="height" )
+mtext(concat("N = ",N))
+# plot the lines, with transparency
+for ( i in 1:N ) {
+  fun = function(x){post$a[i] + post$b1[i]*x + post$b2[i]*x^2}
+  curve(expr=fun, from = -2.5, to = 2.5, col=col.alpha("black",0.3), add=T)}
+```
+

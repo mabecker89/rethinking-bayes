@@ -1,0 +1,158 @@
+---
+title: "assignment3_CM"
+author: "Christopher Mallon"
+date: "22/12/2021"
+output: html_document
+---
+
+All three problems below are based on the same data. The data in data(foxes)
+are 116 foxes from 30 different urban groups in England. These foxes are like
+street gangs. Group size varies from 2 to 8 individuals. Each group main-
+tains its own (almost exclusive) urban territory. Some territories are larger
+than others. The area variable encodes this information. Some territories
+also have more avgfood than others. We want to model the weight of each
+fox. For the problems below, assume this DAG:
+
+area -> avgfood -> groupsize -> weight     /\   /\   Todd Vargo
+area -> avgfood -> weight                 //\\_//\\     ____
+                                          \_     _/    /   /
+                                           / * * \    /^^^]
+                                           \_\O/_/    [   ]
+                                            /   \_    [   /
+                                            \     \_  /  /
+                                             [ [ /  \/ _/
+                                            _[ [ \  /_/
+                                            
+```{r Setup}
+rm(list = ls())
+gc()
+library(rethinking)
+data(foxes)
+d <- foxes
+```
+
+# Useful stats
+Average weight of a fox is `r mean(d$weight)`, max is `r max(d$weight)`, sd is `r sd(d$weight)`.
+<!-- avg: 4.52, max: 7.55, sd: 1.18 -->
+
+# Problem 1
+Use a model to infer the total causal influence of area on weight . Would
+increasing the area available to each fox make it heavier (healthier)? You
+might want to standardize the variables. Regardless, use prior predictive
+simulation to show that your model’s prior predictions stay within the pos-
+sible outcome range.
+
+## Assess overall relationship
+```{r area-weight relationship}
+plot(d$weight~d$area)
+```
+
+```{r So let's try to infer the total causal influence}
+# standardize vars
+d$A <- (d$area - mean(d$area))/sd(d$area)
+d$W <- (d$weight - mean(d$weight)) / sd(d$weight)
+
+# W_i~Normal(μ_i,σ)
+# μ_i = α + β_A*A_i
+# α ~ Normal(4.5, 2) # guessing avg. fox weight is 4.5, sd 2 (I cheated)
+# β_A ~ Normal(0, 0.5) # guessing slope of 0, up to 0.5 (approx 22.5 degrees)
+# σ ~ Exponential(1) # Not sure what this means, but it's recommended
+
+area_weight_model <- quap(
+  alist(
+    W ~ dnorm(mu_i, sigma), 
+    mu_i <- alpha + beta_A*A, # Does 'A' link to our d$A?
+    alpha ~ dnorm(0, 0.5), # average, w. sd 1 - so far I dislike standardization
+    beta_A ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+
+set.seed(1)
+prior <- extract.prior(area_weight_model)
+mu <- link(area_weight_model, post = prior, data = list(A=c(-2,2)))
+plot( NULL , xlim=c(-3,3) , ylim=c(-3,3), xlab="area" , ylab="weight" )
+for ( i in 1:50 ) lines( c(-2,2) , mu[i,] , col=col.alpha("black",0.4) )
+```
+
+I think the intention here is to show that there's no relationship. My quesion is: does the above do that?
+
+```{r}
+# percentile interval of mean
+A_seq = seq(from=-2.5, to=2.5, length.out=50)
+mu <- link(area_weight_model, data = list(A=A_seq))
+mu.mean <- apply(mu, 2, mean)
+mu.PI <- apply(mu, 2, PI)
+
+# plot
+plot(W~A, data = d, col = rangi2)
+lines(A_seq, mu.mean, lwd=2)
+shade(mu.PI, A_seq)
+```
+
+
+# Problem 2
+Now infer the causal impact of adding food to a territory. Would this
+make foxes heavier? Which covariates do you need to adjust for to estimate
+the total causal influence of food?
+
+```{r}
+par(mfrow=c(1,2))
+plot(d$avgfood~d$area)
+plot(d$weight~d$avgfood)
+```
+
+It seems that area size and avg food are correlated. Avgfood and weight do not
+seem to correlate.
+
+```{r}
+d$AF <- (d$avgfood - mean(d$avgfood)) / sd(d$avgfood)
+
+area_food_weight <- quap(
+  alist(W ~ dnorm(mu_i, sigma),
+        mu_i <- alpha + B1*A+B2*AF,
+        alpha ~ dnorm(0,0.2),
+        B1~dnorm(0, 0.5),
+        B2~dnorm(0, 0.5),
+        sigma~dexp(1)
+        ),
+  data=d
+)
+
+precis(area_food_weight)
+
+```
+
+```{r}
+plot(coeftab(area_food_weight, area_weight_model), par=c("B1")) # why doesn't this work?
+```
+
+
+# Problem 3
+Now infer the causal impact of group size. Which covariates do you need
+to adjust for? Looking at the posterior distribution of the resulting model,
+what do you think explains these data? That is, can you explain the estimates
+for all three problems? How do they go together?
+
+```{r}
+d$GS <- (d$groupsize - mean(d$groupsize)) / sd(d$groupsize)
+
+area_food_group_weight <- quap(
+  alist(
+    W ~ dnorm(mu, sigma),
+    mu <- alpha + B1*A + B2*AF + B3*GS,
+    alpha ~ dnorm(0, 1),
+    B1 ~ dnorm(0, 0.5),
+    B2 ~ dnorm(0, 0.5),
+    B3 ~ dnorm(0, 0.5),
+    sigma ~ dexp(1)
+  ), data = d
+)
+precis(area_food_group_weight)
+
+```
+
+So, as group size increases, weight decreases? That makes some intuitive sense.
+Additionally, now both B1 and B2 have positive slopes, when they didn't before.
+So maybe factoring in group size can show that both area and food are overall
+positive? And that group size confounds that by being negative?

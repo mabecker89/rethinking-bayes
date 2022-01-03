@@ -3,7 +3,7 @@
 # Created: December 1st, 2021
 # Last Updated: December 12th, 2021
 # Author: Brandon Allen
-# Objectives: Create examples illustrating how dispersal distances will impact the indicator
+# Objectives:
 # Keywords: Setup, Question 1, Question 2, Question 3
 # Notes:
 #
