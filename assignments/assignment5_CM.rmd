@@ -1,0 +1,166 @@
+---
+title: "assignment5_CM"
+author: "Christopher Mallon"
+date: "29/04/2022"
+output: html_document
+---
+
+
+# 1. 
+Consider the data(Wines2012) data table. These data are expert ratings
+of 20 different French and American wines by 9 different French and Amer-
+ican judges. Your goal is to model score , the subjective rating assigned by
+each judge to each wine. I recommend standardizing it.
+In this first problem, consider only variation among judges and wines.
+Construct index variables of judge and wine and then use these index vari-
+ables to construct a linear regression model. Justify your priors. You should
+end up with 9 judge parameters and 20 wine parameters. Use ulam instead of
+quap to build this model, and be sure to check the chains for convergence. If
+you’d rather build the model directly in Stan or PyMC3, go ahead. I just want
+you to use Hamiltonian Monte Carlo instead of quadratic approximation.
+How do you interpret the variation among individual judges and indi-
+vidual wines? Do you notice any patterns, just by plotting the differences?
+Which judges gave the highest/lowest ratings? Which wines were rated worst/
+best on average?
+
+```{r}
+library(rethinking)
+data("Wines2012")
+d <- Wines2012
+d$j_index <- as.integer(as.factor(d$judge))
+d$w_index <- as.integer(as.factor(d$wine))
+d$score_std <- (d$score - min(d$score))/(max(d$score) - min(d$score))
+
+d_slim <- list(
+j_index = d$j_index,
+w_index = d$w_index,
+score = d$score_std
+)
+
+hm5.1 <- ulam(
+  alist(
+    score ~ dnorm(mu, sigma),
+    mu <- a[j_index] + b[w_index], # How were we supposed to know to do this? Is this even a lm anymore? WHich one is slope?
+    a[j_index] ~ dnorm(0.5, 0.2), # because a judge could like or dislike a wine
+    b[w_index] ~ dnorm(0.5, 0.2),
+    sigma ~ dexp(1)
+  ), data = d_slim, chains = 4
+)
+
+precis(hm5.1, depth = 2)
+
+```
+
+```{r}
+traceplot(hm5.1)
+```
+
+In spite of some interesting Rhat values (>1, uh oh) the traceplots look okay. Looking at the results, 
+it does seem like there were some wines that were generally less preferred than others. It also
+looks like judges with lower coefficients were globally harsher.
+
+The harsher judges were Jean-M Cardebat (4), and Robert Hodgson (8). The least favourite wine was I2(18), followed by C2(6).
+
+
+# 2. 
+Now consider three features of the wines and judges:
+(1) flight : Whether the wine is red or white.
+(2) wine.amer : Indicator variable for American wines.
+(3) judge.amer : Indicator variable for American judges.
+Use indicator or index variables to model the influence of these features on
+the scores. Omit the individual judge and wine index variables from Problem
+1. Do not include interaction effects yet. Again use ulam , justify your priors,
+and be sure to check the chains. What do you conclude about the differences
+among the wines and judges? Try to relate the results to the inferences in
+Problem 1.
+
+```{r}
+data("Wines2012")
+d <- Wines2012
+d$f_index <- as.integer(as.factor(d$flight))
+d$wa_index <- as.integer(as.factor(d$wine.amer))
+d$ja_index <- as.integer(as.factor(d$judge.amer))
+d$score_std <- (d$score - min(d$score))/(max(d$score) - min(d$score))
+
+d_slim <- list(
+  f_index = d$f_index,
+  ja_index = d$ja_index,
+  wa_index = d$wa_index,
+  score = d$score_std
+)
+
+hm5.2 <- ulam(
+  alist(
+    score ~ dnorm(mu, sigma),
+    mu <- a[f_index] + b[ja_index] + c[wa_index], # the solution says that htis is wrong. Why? Help?
+    a[f_index] ~ dnorm(0, 0.2), # set priors to 0 b/c we don't know if the influence will be positive or negative.
+    b[ja_index] ~ dnorm(0, 0.2),
+    c[wa_index] ~ dnorm(0, 0.2),
+    sigma ~ dexp(1)
+  ), data = d_slim, chains = 4
+)
+
+precis(hm5.2, depth = 2)
+```
+Let's just see how it looks first.
+
+```{r}
+pairs(hm5.2@stanfit)
+```
+Looks like the index vars are correlated w. each other, but otherwise looks like an okay spread.
+
+```{r}
+traceplot(hm5.2)
+```
+
+Those are some nice fuzzy caterpillars.
+So thoughts:
+Not a lot of difference between the provenance, the flight, or the judge nationality. Of course, this is only when each one is looked at separately.
+
+# 3. 
+Now consider two-way interactions among the three features. You should
+end up with three different interaction terms in your model. These will be
+easier to build, if you use indicator variables. Again use ulam , justify your
+priors, and be sure to check the chains. Explain what each interaction means.
+Be sure to interpret the model’s predictions on the outcome scale ( mu , the
+expected score), not on the scale of individual parameters. You can use link
+to help with this, or just use your knowledge of the linear model instead.
+What do you conclude about the features and the scores? Can you relate
+the results of your model(s) to the individual judge and wine inferences from
+Problem 1?
+
+```{r}
+data("Wines2012")
+d <- Wines2012
+d$f <- as.integer(as.factor(d$flight))
+d$wa <- as.integer(as.factor(d$wine.amer))
+d$ja <- as.integer(as.factor(d$judge.amer))
+d$score_std <- (d$score - min(d$score))/(max(d$score) - min(d$score))
+
+d_slim <- list(
+  f = d$f,
+  ja = d$ja,
+  wa = d$wa,
+  score = d$score_std
+)
+
+hm5.3 <- ulam(
+  alist(
+    score ~ dnorm(mu, sigma),
+    mu <- bf*f + bj*ja + bw*wa + bfj*f*ja + bfw*f*wa + bjw*ja*wa,
+    bf ~ dnorm(0, 0.2), # set priors to 0 b/c we don't know if the influence will be positive or negative.
+    bj ~ dnorm(0, 0.2),
+    bw ~ dnorm(0, 0.2),
+    bfj~ dnorm(0, 0.2),
+    bfw ~ dnorm(0, 0.2),
+    bjw ~ dnorm(0, 0.2),
+    sigma ~ dexp(1)
+  ), data = d_slim, chains = 4
+)
+
+precis(hm5.3, depth = 2)
+```
+
+Neat. So in this final model, it does appear that ther is a substantial judge effect. What could that indicate?
+
+I'm also seeing a negative effect having to do with the interaciton between flight and judge, and also between judge.american and wine.american. I'm a bit surprised because the taste test was blind - why would these have interaction effects?
