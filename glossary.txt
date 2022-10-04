@@ -1,0 +1,17 @@
+Generalized Linear Model - a model that replaces the parameter of a likelihood function with a linear model.
+
+link() - This is a function in rethinking. Essentially, it takes quap or ulam models and produces distributions of predictions at requested values.
+
+Model Checking - (i) ensuring a model fitting procedure has occurred successfully, and (ii) evaluating the adequacy of a model for a given purpose. Bayesian models are generative, meaning they can simulate observations and estimate parameters from observations. Once conditioned on data, a model can be run to evaluate its empirical expectations. See also posterior predictive checks.
+
+Maximum Entropy - a principle to help choose the likelihood function by providing a way to use stated assumptions about constraints on the outcome var to choose the likelihood function that is most conservative distribtiion compatible with th eknown constraints
+
+Maximum Entropy Distribution - The distribution that can happen in the most ways.
+
+Prior - A distribution of the plausability of a parameter.
+
+Posterior - the output of quap() (or ulam() prolly). It is estimates of parameter values conditioned on data. Key word: parameters.
+
+Posterior Predictive distribution - this is the predicted distributions of objective function values - as in, the result of the posterior. This is the juice you're trying to squeeze out of the data. You can graph this using link() or sim().
+
+Posterior predictive checks- these "combine uncertainty about parameters, as described by the posterior distribution, with uncertainty about outcomes, as described by the assumed like lihood function. These checks are useful for verifying that your software worked correctly. They are also useful for prospecting for ways in which your models are inadequate."
