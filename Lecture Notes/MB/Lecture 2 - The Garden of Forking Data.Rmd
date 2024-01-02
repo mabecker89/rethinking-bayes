@@ -1,0 +1,86 @@
+---
+title: "The Garden of Forking Data"
+author: "Marcus Becker"
+date: "2024-01-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+What proportion of the world's surface is covered with water?
+
+Estimand -> Estimator -> Estimate
+
+* Note - Estimates in Bayesian Inference are never points, they are distributions.  
+
+How to represent uncertainty? 
+
+Workflow
+
+(1) Define generative model of the sample
+(2) Define a specific estimand
+(3) Design a statistical way to produce estimate
+(4) Test (3) using (1)
+(5) Analyze sample, summarize 
+
+Proportion of water (p) is our estimand, what we want to estimate.
+
+Can observe using the other variables (e.g., Number of tosses, water obs, land obs)
+
+Bayesian data analysis: For each possible explanation of the sample, count all of the ways the sample could happen. Explanations with more ways to produce the sample are more plausible. 
+
+A desirable feature of an estimator is that it is NOT overconfident in small samples.
+
+Unglamorous basis of applied probability: Things that can happen more ways are more plausible.
+
+Probability: Non-negative values that sum to one.
+
+Posterior Distribution - it is "posterior" to the sample we took, in light of updating the data
+
+Test Before You Est(imate)
+
+Explain your code to the rubber ducky lol
+
+If you test nothing, you miss everything!
+
+Get a sense of the sampling variation
+
+(1) Test the estimator where the answer is known
+(2) Explore different sampling designs
+(3) Develop intuition for sampling and estimation
+
+"good enough for government work" haha
+
+The beta distribution
+
+When you have an infinite number of possibilities, you call it density
+
+(1) No minimum sample size
+(2) Shape embodies sample size - all the information is included!
+(3) No point estimate - the distribution is the estimate. Always use the entire distribution.
+(4) No one true interval - intervals communicate shape of posterior.
+
+Posterior prediction, made using an existing estimate
+
+Bonus round!
+
+Misclassification (categorical) / Measurement error (numerical)
+
+Misclassified sample <- (influenced by) -- the measurement process
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
